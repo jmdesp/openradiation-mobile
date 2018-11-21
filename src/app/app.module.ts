@@ -14,16 +14,18 @@ import { SocialSharing } from '@ionic-native/social-sharing/ngx';
 import { SplashScreen } from '@ionic-native/splash-screen/ngx';
 import { StatusBar } from '@ionic-native/status-bar/ngx';
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
+import { IonicStorageModule } from '@ionic/storage';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgxsFormPluginModule } from '@ngxs/form-plugin';
 import { NgxsLoggerPluginModule } from '@ngxs/logger-plugin';
-import { NgxsStoragePluginModule } from '@ngxs/storage-plugin';
+import { NgxsStoragePluginModule, STORAGE_ENGINE } from '@ngxs/storage-plugin';
 import { NgxsModule } from '@ngxs/store';
 import { environment } from '../environments/environment';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { MenuComponent } from './pages/menu/menu.component';
+import { StorageService } from './services/storage.service';
 import { DevicesState } from './states/devices/devices.state';
 import { MeasuresState } from './states/measures/measures.state';
 import { UserState } from './states/user/user.state';
@@ -34,11 +36,14 @@ import { UserState } from './states/user/user.state';
   imports: [
     BrowserModule,
     IonicModule.forRoot(),
+    IonicStorageModule.forRoot(),
     AppRoutingModule,
     NgxsModule.forRoot([DevicesState, MeasuresState, UserState]),
     NgxsFormPluginModule.forRoot(),
     NgxsStoragePluginModule.forRoot({
-      key: ['devices.knownDevices', 'measures.measures', 'measures.params', 'user']
+      key: ['devices.knownDevices', 'measures.measures', 'measures.params', 'user'],
+      serialize: (obj: any): any => obj,
+      deserialize: (obj: any): any => obj
     }),
     NgxsLoggerPluginModule.forRoot({
       disabled: environment.production
@@ -64,7 +69,11 @@ import { UserState } from './states/user/user.state';
     SocialSharing,
     Camera,
     BLE,
-    Serial
+    Serial,
+    {
+      provide: STORAGE_ENGINE,
+      useClass: StorageService
+    }
   ],
   bootstrap: [AppComponent]
 })

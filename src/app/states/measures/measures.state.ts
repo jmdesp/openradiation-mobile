@@ -1,5 +1,6 @@
 import { Device } from '@ionic-native/device/ngx';
-import { Action, Selector, State, StateContext } from '@ngxs/store';
+import { Platform } from '@ionic/angular';
+import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
 import { Location } from 'cordova-plugin-mauron85-background-geolocation';
 import { of } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -84,12 +85,13 @@ export interface MeasuresStateModel {
     }
   }
 })
-export class MeasuresState {
+export class MeasuresState implements NgxsOnInit {
   constructor(
     private positionService: PositionService,
     private device: Device,
     private measuresService: MeasuresService,
-    private dateService: DateService
+    private dateService: DateService,
+    private platform: Platform
   ) {}
 
   @Selector()
@@ -125,6 +127,14 @@ export class MeasuresState {
   @Selector()
   static measures({ measures }: MeasuresStateModel): (Measure | MeasureSeries)[] {
     return measures;
+  }
+
+  ngxsOnInit() {
+    this.platform.ready().then(() => {
+      if (this.platform.is('cordova')) {
+        this.positionService.init();
+      }
+    });
   }
 
   @Action(EnableExpertMode)
