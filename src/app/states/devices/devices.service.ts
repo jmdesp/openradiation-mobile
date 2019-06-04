@@ -10,7 +10,6 @@ import { DeviceSafeCastService } from './ble/device-safe-cast.service';
 import { DeviceMockService } from './device-mock.service';
 import { DeviceConnectionLost } from './devices.action';
 import { DevicePocketGeigerService } from './usb/device-pocket-geiger.service';
-import { DeviceRiumService } from './usb/device-rium.service';
 
 @Injectable({
   providedIn: 'root'
@@ -26,16 +25,14 @@ export class DevicesService {
     private deviceOGKitService: DeviceOGKitService,
     private deviceAtomTagService: DeviceAtomTagService,
     private deviceSafeCastService: DeviceSafeCastService,
-    private devicePocketGeigerService: DevicePocketGeigerService,
-    private deviceRiumService: DeviceRiumService
+    private devicePocketGeigerService: DevicePocketGeigerService
   ) {
     this.services = {
       [DeviceType.Mock]: this.deviceMockService,
       [DeviceType.OGKit]: this.deviceOGKitService,
       [DeviceType.AtomTag]: this.deviceAtomTagService,
       [DeviceType.SafeCast]: this.deviceSafeCastService,
-      [DeviceType.PocketGeiger]: this.devicePocketGeigerService,
-      [DeviceType.Rium]: this.deviceRiumService
+      [DeviceType.PocketGeiger]: this.devicePocketGeigerService
     };
     this.actions$.pipe(ofActionSuccessful(DeviceConnectionLost)).subscribe(() =>
       this.toastController

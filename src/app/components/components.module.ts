@@ -15,15 +15,10 @@ import { HitNumberPipe } from './pipes/hit-number/hit-number.pipe';
 import { SanitizeHtmlPipe } from './pipes/sanitize-html/sanitize-html.pipe';
 import { RoundButtonComponent } from './round-button/round-button.component';
 import { SelectIconComponent } from './select-icon/select-icon.component';
-import { SeriesGraphComponent } from './series-graph/series-graph.component';
 import { TagListComponent } from './tag-list/tag-list.component';
-import { PlotlyModule } from 'angular-plotly.js';
-import * as PlotlyJS from 'plotly.js/dist/plotly.js';
-
-PlotlyModule.plotlyjs = PlotlyJS;
 
 @NgModule({
-  imports: [CommonModule, FormsModule, IonicModule, TranslateModule, PlotlyModule],
+  imports: [CommonModule, FormsModule, IonicModule, TranslateModule],
   declarations: [
     HeaderComponent,
     CategoryLabelComponent,
@@ -37,8 +32,7 @@ PlotlyModule.plotlyjs = PlotlyJS;
     SelectIconComponent,
     TagListComponent,
     PhotoComponent,
-    SanitizeHtmlPipe,
-    SeriesGraphComponent
+    SanitizeHtmlPipe
   ],
   exports: [
     HeaderComponent,
@@ -53,8 +47,7 @@ PlotlyModule.plotlyjs = PlotlyJS;
     SelectIconComponent,
     TagListComponent,
     PhotoComponent,
-    SanitizeHtmlPipe,
-    SeriesGraphComponent
+    SanitizeHtmlPipe
   ],
   entryComponents: []
 })

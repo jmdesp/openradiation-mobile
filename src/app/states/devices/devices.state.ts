@@ -131,8 +131,7 @@ export class DevicesState {
   stopDiscoverDevices({ patchState }: StateContext<DevicesStateModel>) {
     patchState({
       isScanning: false,
-      availableBLEDevices: [],
-      availableUSBDevices: []
+      availableBLEDevices: []
     });
   }
 

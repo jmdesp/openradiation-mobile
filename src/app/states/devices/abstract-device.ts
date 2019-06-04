@@ -33,6 +33,5 @@ export enum DeviceType {
   OGKit = 'OG-KIT1',
   AtomTag = 'AtomTag',
   SafeCast = 'bGeigieBLE',
-  PocketGeiger = 'Pocket Geiger Type 6',
-  Rium = 'RiumGm'
+  PocketGeiger = 'Pocket Geiger Type 6'
 }

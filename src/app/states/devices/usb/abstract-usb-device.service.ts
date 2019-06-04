@@ -1,59 +1,57 @@
-import { Actions, Store } from '@ngxs/store';
-import { UsbSerial } from 'cordova-plugin-usb-serial';
-import { Observable, Observer } from 'rxjs';
-import { catchError, concatMap, shareReplay, take } from 'rxjs/operators';
+import { Serial } from '@ionic-native/serial/ngx';
+import { Actions, ofActionDispatched, Store } from '@ngxs/store';
+import { Observable, of, timer } from 'rxjs';
+import { fromPromise } from 'rxjs/internal-compatibility';
+import { catchError, concatMap, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AbstractDeviceService } from '../abstract-device.service';
-import { DeviceConnectionLost } from '../devices.action';
+import { DeviceConnectionLost, DisconnectDevice } from '../devices.action';
 import { AbstractUSBDevice } from './abstract-usb-device';
 
-/**
- * Constant from cordova-plugin-usb-serial
- */
-declare const UsbSerial: UsbSerial;
-
 export abstract class AbstractUSBDeviceService<T extends AbstractUSBDevice> extends AbstractDeviceService<T> {
-  constructor(protected store: Store, protected actions$: Actions) {
+  constructor(protected store: Store, protected serial: Serial, protected actions$: Actions) {
     super(store);
   }
 
   abstract buildDevice(): T;
 
   connectDevice(device: T): Observable<any> {
-    const connection = Observable.create((observer: Observer<any>) =>
-      UsbSerial.connect(
-        { vid: device.vid, pid: device.pid },
-        {
-          baudRate: device.baudRate,
-          dataBits: device.dataBits
-        },
-        status => {
-          switch (status) {
-            case 'connected':
-              observer.next(null);
-              break;
-            case 'disconnected':
-              observer.complete();
-          }
-        },
-        err => observer.error(err)
-      )
+    return fromPromise(
+      this.serial.open({
+        baudRate: device.baudRate,
+        dataBits: device.dataBits,
+        stopBits: 1,
+        parity: 0,
+        dtr: false,
+        rts: false,
+        sleepOnPause: false
+      })
     ).pipe(
       concatMap(() => this.saveDeviceParams(device)),
-      shareReplay()
+      catchError(() => this.store.dispatch(new DeviceConnectionLost())),
+      tap(() => this.watchDeviceConnection(device))
     );
-    connection.pipe(catchError(() => this.store.dispatch(new DeviceConnectionLost()))).subscribe();
-    return connection.pipe(take(1));
+  }
+
+  private watchDeviceConnection(device: T) {
+    timer(1000, 1000)
+      .pipe(
+        takeUntil(this.actions$.pipe(ofActionDispatched(DisconnectDevice, DeviceConnectionLost))),
+        switchMap(() =>
+          fromPromise(this.serial.requestPermission({ vid: device.vid, pid: device.pid, driver: device.driver }))
+        ),
+        catchError(err => {
+          if (err === 'No device found!') {
+            this.store.dispatch(new DeviceConnectionLost());
+            return of(null);
+          } else {
+            throw err;
+          }
+        })
+      )
+      .subscribe();
   }
 
   disconnectDevice(device: T): Observable<any> {
-    return Observable.create((observer: Observer<any>) =>
-      UsbSerial.disconnect(
-        () => {
-          observer.next(null);
-          observer.complete();
-        },
-        err => observer.error(err)
-      )
-    );
+    return fromPromise(this.serial.close());
   }
 }
