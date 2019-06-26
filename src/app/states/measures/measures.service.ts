@@ -8,14 +8,7 @@ import { AbstractDevice, ApparatusSensorType } from '../devices/abstract-device'
 import { DeviceConnectionLost } from '../devices/devices.action';
 import { DevicesService } from '../devices/devices.service';
 import { UserStateModel } from '../user/user.state';
-import {
-  Measure,
-  MeasureSeries,
-  MeasureType,
-  PositionAccuracyThreshold,
-  Step,
-  V1OrganisationReporting
-} from './measure';
+import { Measure, MeasureSeries, MeasureType, PositionAccuracyThreshold, Step } from './measure';
 import { MeasureApi } from './measure-api';
 import { AddMeasureScanStep, CancelMeasure, StopMeasureScan } from './measures.action';
 import { MeasuresStateModel } from './measures.state';
@@ -66,8 +59,8 @@ export class MeasuresService {
     return detectHits;
   }
 
-  computeRadiationValue(measure: Measure, device: AbstractDevice): number {
-    return this.devicesService.service(device).computeRadiationValue(measure);
+  computeRadiationValue(measure: Measure, device: AbstractDevice, planeMode: boolean): [number, string] {
+    return this.devicesService.service(device).computeRadiationValue(measure, planeMode);
   }
 
   publishMeasure(measure: Measure | MeasureSeries): Observable<any> {
@@ -120,7 +113,12 @@ export class MeasuresService {
           userId: this.store.selectSnapshot(({ user }: { user: UserStateModel }) => user.login),
           userPwd: this.store.selectSnapshot(({ user }: { user: UserStateModel }) => user.password),
           measurementEnvironment: measure.measurementEnvironment,
-          rain: measure.rain
+          rain: measure.rain,
+          flightNumber: measure.flightNumber,
+          seatNumber: measure.seatNumber,
+          storm: measure.storm,
+          windowSeat: measure.windowSeat,
+          calibrationFunction: measure.calibrationFunction
         }
       };
       return this.httpClient.post(environment.API_URI, payload);
@@ -143,22 +141,14 @@ export class MeasuresService {
   static canPublishMeasure(measure: Measure | MeasureSeries): boolean {
     switch (measure.type) {
       case MeasureType.Measure:
-        if (measure.organisationReporting === V1OrganisationReporting) {
-          return (
-            measure.accuracy !== undefined &&
-            measure.accuracy !== null &&
-            measure.accuracy < PositionAccuracyThreshold.No
-          );
-        } else {
-          return (
-            measure.accuracy !== undefined &&
-            measure.accuracy !== null &&
-            measure.accuracy < PositionAccuracyThreshold.No &&
-            measure.endAccuracy !== undefined &&
-            measure.endAccuracy !== null &&
-            measure.endAccuracy < PositionAccuracyThreshold.No
-          );
-        }
+        return (
+          measure.accuracy !== undefined &&
+          measure.accuracy !== null &&
+          measure.accuracy < PositionAccuracyThreshold.No &&
+          measure.endAccuracy !== undefined &&
+          measure.endAccuracy !== null &&
+          measure.endAccuracy < PositionAccuracyThreshold.No
+        );
       case MeasureType.MeasureSeries:
         return measure.measures.some(
           item =>

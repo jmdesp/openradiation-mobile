@@ -137,6 +137,20 @@
             <img src="assets/img/bg-radiation.png" />
           </div>
         </div>
+        <ng-container *ngIf="planeMode$ | async; else planeModeFalse">
+          <div class="message">
+            <div class="message-series">
+              {{'HOME.MEASURE_MODE' | translate}} : {{('GENERAL.ON_PLANE' | translate | lowercase) }}
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #planeModeFalse>
+          <div class="message">
+            <div class="message-series">
+              {{'HOME.MEASURE_MODE' | translate}} : {{('GENERAL.ON_GROUND' | translate | lowercase) }}
+            </div>
+          </div>
+        </ng-template>
         <ng-container *ngIf="currentSeries$ | async as currentSeries">
           <div class="message">
             <div class="message-series">
@@ -171,7 +185,7 @@
             </div>
           </div>
           <div class="graph-zone">
-           <app-series-graph [seriesMeasure]="currentSeries"></app-series-graph>
+            <app-series-graph [seriesMeasure]="currentSeries"></app-series-graph>
           </div>
         </ng-container>
         <div class="bottom-buttons">

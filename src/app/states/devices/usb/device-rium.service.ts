@@ -16,13 +16,17 @@ declare const UsbSerial: UsbSerial;
   providedIn: 'root'
 })
 export class DeviceRiumService extends AbstractUSBDeviceService<DeviceRium> {
+  protected calibrationFunctions = {
+    planeMode: {
+      0: '(0.00000003751 * (cps * 60 - 4) ^ 2 + 0.00965 * (cps * 60 - 4)) * 0.85'
+    },
+    groundLevel: {
+      0: '(0.00000003751 * (cps * 60 - 4) ^ 2 + 0.00965 * (cps * 60 - 4)) * 0.85'
+    }
+  };
+
   constructor(protected store: Store, protected actions$: Actions) {
     super(store, actions$);
-  }
-
-  protected convertHitsNumberPerSec(hitsNumberPerSec: number): number {
-    // TODO fix conversion factor
-    return (hitsNumberPerSec * 60) / 500;
   }
 
   getDeviceInfo(device: DeviceRium): Observable<Partial<DeviceRium>> {

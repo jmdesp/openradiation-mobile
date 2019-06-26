@@ -56,6 +56,9 @@
       align-items: center;
       justify-content: center;
       top: 0;
+      ion-button {
+        height: 100%;
+      }
       &.left {
         left: 0;
       }
@@ -66,7 +69,7 @@
     .label {
       width: 100%;
       text-align: center;
-      font-size: 30px;
+      font-size: 25px;
       font-family: 'ARIALROUNDED', Arial, Helvetica, sans-serif;
     }
   }

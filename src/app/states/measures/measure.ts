@@ -3,8 +3,6 @@ import * as uuid from 'uuid';
 import { environment } from '../../../environments/environment';
 import { ApparatusSensorType } from '../devices/abstract-device';
 
-export const V1OrganisationReporting = 'OpenRadiation app 1.0.0';
-
 export abstract class AbstractMeasure {
   abstract readonly type: MeasureType;
   startTime: number;
@@ -51,8 +49,13 @@ export class Measure extends AbstractMeasure {
   enclosedObject?: string;
   measurementEnvironment?: MeasureEnvironment;
   rain?: boolean;
+  storm?: boolean;
+  windowSeat?: boolean;
+  flightNumber?: string;
+  seatNumber?: string;
   steps?: Step[] = [];
   hitsAccuracy?: number;
+  calibrationFunction?: string;
 
   constructor(
     apparatusId: string | undefined,
@@ -154,6 +157,12 @@ export enum MeasureEnvironment {
   Plane = 'plane'
 }
 
+export interface Params {
+  expertMode: boolean;
+  autoPublish: boolean;
+  planeMode: boolean;
+}
+
 export interface MeasureReport {
   latitude: number | undefined;
   longitude: number | undefined;
@@ -171,6 +180,10 @@ export interface MeasureReport {
   tags: string[] | undefined;
   measurementEnvironment: MeasureEnvironment | undefined;
   rain: boolean | undefined;
+  storm: boolean | undefined;
+  windowSeat: boolean | undefined;
+  flightNumber: string | undefined;
+  seatNumber: string | undefined;
 }
 
 export interface MeasureSeriesParams {
@@ -199,6 +212,10 @@ export interface MeasureSeriesReport {
   tags: string[] | undefined;
   measurementEnvironment: MeasureEnvironment | undefined;
   rain: boolean | undefined;
+  storm: boolean | undefined;
+  windowSeat: boolean | undefined;
+  flightNumber: string | undefined;
+  seatNumber: string | undefined;
 }
 
 export class MeasureSeries extends AbstractMeasure {

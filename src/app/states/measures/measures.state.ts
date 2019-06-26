@@ -1,13 +1,14 @@
 import { Device } from '@ionic-native/device/ngx';
 import { Location } from '@mauron85/cordova-plugin-background-geolocation';
-import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
+import { Action, Selector, State, StateContext } from '@ngxs/store';
 import { of } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { V1MigrationService } from '../../services/v1-migration.service';
+import { Form } from '../../app.component';
 import { AbstractDevice } from '../devices/abstract-device';
 import { DateService } from './date.service';
 import {
   Measure,
+  MeasureEnvironment,
   MeasureReport,
   MeasureSeries,
   MeasureSeriesParams,
@@ -24,11 +25,13 @@ import {
   DeleteMeasure,
   DisableAutoPublish,
   DisableExpertMode,
+  DisablePlaneMode,
   EnableAutoPublish,
   EnableExpertMode,
+  EnablePLaneMode,
+  InitMeasures,
   PositionChanged,
   PublishMeasure,
-  RetrieveV1Measures,
   ShowMeasure,
   StartManualMeasure,
   StartMeasure,
@@ -54,51 +57,35 @@ export interface MeasuresStateModel {
   currentSeries?: MeasureSeries;
   canEndCurrentScan: boolean;
   recentTags: string[];
-  measureReport?: {
-    model: MeasureReport;
-    dirty: boolean;
-    status: string;
-    errors: any;
-  };
-  measureSeriesParams?: {
-    model: MeasureSeriesParams;
-    dirty: boolean;
-    status: string;
-    errors: any;
-  };
-  measureSeriesReport?: {
-    model: MeasureSeriesReport;
-    dirty: boolean;
-    status: string;
-    errors: any;
-  };
+  measureReport?: Form<MeasureReport>;
+  measureSeriesParams?: Form<MeasureSeriesParams>;
+  measureSeriesReport?: Form<MeasureSeriesReport>;
   params: {
     expertMode: boolean;
     autoPublish: boolean;
+    planeMode: boolean;
   };
-  v1MeasuresRetrieved: boolean;
 }
 
 @State<MeasuresStateModel>({
   name: 'measures',
   defaults: {
-    v1MeasuresRetrieved: false,
     measures: [],
     recentTags: [],
     canEndCurrentScan: false,
     params: {
       expertMode: false,
-      autoPublish: false
+      autoPublish: false,
+      planeMode: false
     }
   }
 })
-export class MeasuresState implements NgxsOnInit {
+export class MeasuresState {
   constructor(
     private positionService: PositionService,
     private device: Device,
     private measuresService: MeasuresService,
-    private dateService: DateService,
-    private v1MigrationService: V1MigrationService
+    private dateService: DateService
   ) {}
 
   @Selector()
@@ -109,6 +96,11 @@ export class MeasuresState implements NgxsOnInit {
   @Selector()
   static autoPublish({ params }: MeasuresStateModel): boolean {
     return params.autoPublish;
+  }
+
+  @Selector()
+  static planeMode({ params }: MeasuresStateModel): boolean {
+    return params.planeMode;
   }
 
   @Selector()
@@ -133,7 +125,7 @@ export class MeasuresState implements NgxsOnInit {
 
   @Selector()
   static measures({ measures }: MeasuresStateModel): (Measure | MeasureSeries)[] {
-    return measures.sort((a, b) => b.startTime - a.startTime);
+    return [...measures].sort((a, b) => b.startTime - a.startTime);
   }
 
   @Selector()
@@ -146,11 +138,13 @@ export class MeasuresState implements NgxsOnInit {
     return canEndCurrentScan;
   }
 
-  ngxsOnInit({ dispatch, getState }: StateContext<MeasuresStateModel>) {
-    const { v1MeasuresRetrieved } = getState();
-    if (!v1MeasuresRetrieved) {
-      dispatch(new RetrieveV1Measures());
-    }
+  @Action(InitMeasures)
+  initMeasures(
+    { patchState, getState }: StateContext<MeasuresStateModel>,
+    { measures, params, recentTags }: InitMeasures
+  ) {
+    const { params: defaultParams } = getState();
+    patchState({ measures, params: { ...defaultParams, ...params }, recentTags });
   }
 
   @Action(EnableExpertMode)
@@ -185,6 +179,22 @@ export class MeasuresState implements NgxsOnInit {
     });
   }
 
+  @Action(EnablePLaneMode)
+  enablePlaneMode({ getState, patchState }: StateContext<MeasuresStateModel>) {
+    const { params } = getState();
+    patchState({
+      params: { ...params, planeMode: true }
+    });
+  }
+
+  @Action(DisablePlaneMode)
+  disablePlaneMode({ getState, patchState }: StateContext<MeasuresStateModel>) {
+    const { params } = getState();
+    patchState({
+      params: { ...params, planeMode: false }
+    });
+  }
+
   @Action(PositionChanged)
   positionChanged({ patchState }: StateContext<MeasuresStateModel>, { position }: PositionChanged) {
     patchState({
@@ -193,9 +203,10 @@ export class MeasuresState implements NgxsOnInit {
   }
 
   @Action(StartMeasure)
-  startMeasure({ patchState }: StateContext<MeasuresStateModel>, { device }: StartMeasure) {
-    patchState({
-      currentMeasure: new Measure(
+  startMeasure({ getState, patchState }: StateContext<MeasuresStateModel>, { device }: StartMeasure) {
+    const { params } = getState();
+    const currentMeasure: Measure = {
+      ...new Measure(
         device.apparatusId,
         device.apparatusVersion,
         device.apparatusSensorType,
@@ -204,14 +215,18 @@ export class MeasuresState implements NgxsOnInit {
         this.device.platform,
         this.device.version,
         this.device.model
-      )
+      ),
+      measurementEnvironment: params.planeMode ? MeasureEnvironment.Plane : undefined
+    };
+    patchState({
+      currentMeasure
     });
   }
 
   @Action(StartManualMeasure)
   startManualMeasure({ getState, patchState }: StateContext<MeasuresStateModel>) {
-    const { currentPosition } = getState();
-    let currentMeasure = {
+    const { currentPosition, params } = getState();
+    let currentMeasure: Measure = {
       ...new Measure(
         undefined,
         undefined,
@@ -223,7 +238,8 @@ export class MeasuresState implements NgxsOnInit {
         this.device.model,
         true
       ),
-      startTime: Date.now()
+      startTime: Date.now(),
+      measurementEnvironment: params.planeMode ? MeasureEnvironment.Plane : undefined
     };
     currentMeasure = Measure.updateStartPosition(currentMeasure, currentPosition);
     currentMeasure = Measure.updateEndPosition(currentMeasure, currentPosition);
@@ -328,7 +344,7 @@ export class MeasuresState implements NgxsOnInit {
     { getState, patchState, dispatch }: StateContext<MeasuresStateModel>,
     { step, device }: AddMeasureScanStep
   ) {
-    const { currentMeasure, currentSeries } = getState();
+    const { currentMeasure, currentSeries, params } = getState();
     if (currentMeasure && currentMeasure.steps) {
       const newCurrentMeasure = {
         ...currentMeasure,
@@ -342,8 +358,14 @@ export class MeasuresState implements NgxsOnInit {
         newCurrentMeasure.hitsNumber = currentMeasure.hitsNumber
           ? currentMeasure.hitsNumber + step.hitsNumber
           : step.hitsNumber;
+        const [value, calibrationFunction] = this.measuresService.computeRadiationValue(
+          newCurrentMeasure,
+          device,
+          params.planeMode
+        );
         newCurrentMeasure.hitsAccuracy = newCurrentMeasure.hitsNumber;
-        newCurrentMeasure.value = this.measuresService.computeRadiationValue(newCurrentMeasure, device);
+        newCurrentMeasure.value = value;
+        newCurrentMeasure.calibrationFunction = calibrationFunction;
       } else if (step.hitsAccuracy !== undefined && step.value !== undefined) {
         newCurrentMeasure.hitsAccuracy = step.hitsAccuracy;
         newCurrentMeasure.value = step.value;
@@ -386,7 +408,11 @@ export class MeasuresState implements NgxsOnInit {
           measure.hitsAccuracy > device.hitsAccuracyThreshold.accurate
         );
       case MeasureSeriesParamsSelected.measureHitsLimit:
-        return measure.hitsAccuracy !== undefined && measure.hitsAccuracy > measureSeries.params.measureHitsLimit;
+        return (
+          measure.hitsAccuracy !== undefined &&
+          measure.hitsAccuracy > measureSeries.params.measureHitsLimit &&
+          currentTime - measure.startTime > 10000
+        );
     }
   }
 
@@ -494,7 +520,11 @@ export class MeasuresState implements NgxsOnInit {
         tags: currentMeasure.tags,
         measurementEnvironment: currentMeasure.measurementEnvironment,
         rain: currentMeasure.rain,
-        enclosedObject: currentMeasure.enclosedObject
+        enclosedObject: currentMeasure.enclosedObject,
+        storm: currentMeasure.storm,
+        windowSeat: currentMeasure.windowSeat,
+        flightNumber: currentMeasure.flightNumber,
+        seatNumber: currentMeasure.seatNumber
       };
       patchState({
         measureReport: {
@@ -539,7 +569,11 @@ export class MeasuresState implements NgxsOnInit {
         description: currentSeries.measures[0].description,
         tags: currentSeries.measures[0].tags,
         measurementEnvironment: currentSeries.measures[0].measurementEnvironment,
-        rain: currentSeries.measures[0].rain
+        rain: currentSeries.measures[0].rain,
+        storm: currentSeries.measures[0].storm,
+        windowSeat: currentSeries.measures[0].windowSeat,
+        flightNumber: currentSeries.measures[0].flightNumber,
+        seatNumber: currentSeries.measures[0].seatNumber
       };
       patchState({
         measureSeriesReport: {
@@ -561,6 +595,10 @@ export class MeasuresState implements NgxsOnInit {
         measurementHeight: measureReport.model.measurementHeight,
         measurementEnvironment: measureReport.model.measurementEnvironment,
         rain: measureReport.model.rain,
+        storm: measureReport.model.storm,
+        flightNumber: measureReport.model.flightNumber ? measureReport.model.flightNumber.toUpperCase() : undefined,
+        seatNumber: measureReport.model.seatNumber ? measureReport.model.seatNumber.toUpperCase() : undefined,
+        windowSeat: measureReport.model.windowSeat,
         description: measureReport.model.description,
         tags: measureReport.model.tags,
         enclosedObject: measureReport.model.enclosedObject
@@ -574,11 +612,15 @@ export class MeasuresState implements NgxsOnInit {
         };
         if (measureReport.model.duration !== undefined) {
           const durationDate = new Date(measureReport.model.duration);
+          let hours;
+          let minutes;
+          let seconds;
+          hours = durationDate.getHours();
+          minutes = durationDate.getMinutes();
+          seconds = durationDate.getSeconds();
           updatedCurrentMeasure = {
             ...updatedCurrentMeasure,
-            endTime:
-              currentMeasure.startTime +
-              (durationDate.getHours() * 60 * 60 + durationDate.getMinutes() * 60 + durationDate.getSeconds()) * 1000
+            endTime: currentMeasure.startTime + (hours * 60 * 60 + minutes * 60 + seconds) * 1000
           };
         }
       }
@@ -603,7 +645,15 @@ export class MeasuresState implements NgxsOnInit {
             measurementEnvironment: measureSeriesReport.model.measurementEnvironment,
             rain: measureSeriesReport.model.rain,
             description: measureSeriesReport.model.description,
-            tags: measureSeriesReport.model.tags
+            tags: measureSeriesReport.model.tags,
+            storm: measureSeriesReport.model.storm,
+            windowSeat: measureSeriesReport.model.windowSeat,
+            flightNumber: measureSeriesReport.model.flightNumber
+              ? measureSeriesReport.model.flightNumber.toUpperCase()
+              : undefined,
+            seatNumber: measureSeriesReport.model.seatNumber
+              ? measureSeriesReport.model.seatNumber.toUpperCase()
+              : undefined
           }))
         }
       });
@@ -670,22 +720,5 @@ export class MeasuresState implements NgxsOnInit {
       recentTags:
         index === -1 ? [tag, ...recentTags] : [tag, ...recentTags.slice(0, index), ...recentTags.slice(index + 1)]
     });
-  }
-
-  @Action(RetrieveV1Measures)
-  retrieveV1Measures({ patchState }: StateContext<MeasuresStateModel>) {
-    return this.v1MigrationService
-      .retrieveMeasures()
-      .then(measures => {
-        patchState({
-          measures,
-          v1MeasuresRetrieved: true
-        });
-      })
-      .catch(() => {
-        patchState({
-          v1MeasuresRetrieved: true
-        });
-      });
   }
 }
